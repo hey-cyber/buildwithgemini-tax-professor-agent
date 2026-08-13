@@ -319,6 +319,62 @@
     color: var(--ink-muted);
   }
 
+  /* --- Enhanced Visual Step & Video Elements --- */
+  .a2step-box {
+    border-left: 4px solid #121212;
+    background: #f4f3ed;
+    padding: 0.65rem 0.85rem;
+    margin: 0.4rem 0;
+    font-family: var(--font-serif);
+    border-radius: 0 4px 4px 0;
+  }
+
+  .a2step-badge {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 700;
+    background: #121212;
+    color: #ffffff;
+    padding: 0.15rem 0.5rem;
+    border-radius: 2px;
+    margin-right: 0.5rem;
+    text-transform: uppercase;
+  }
+
+  .a2visual-callout {
+    border: var(--border-dashed);
+    background: #fafaf5;
+    padding: 0.75rem 1rem;
+    margin-top: 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .a2visual-btn {
+    align-self: flex-start;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.75rem;
+    background: #121212;
+    color: #ffffff;
+    border: var(--border);
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .a2video {
+    width: 100%;
+    max-width: 540px;
+    border: var(--border);
+    box-shadow: var(--shadow);
+    margin: 0.75rem 0;
+    border-radius: 2px;
+    background: #000000;
+  }
+
   .a2divider {
     border: none;
     border-top: var(--border-dashed);
@@ -371,6 +427,7 @@
       <button class="chip-btn" onclick="sendPrompt('Explain Form 1120-S AAA account ordering rules')">📗 Form 1120-S: S-Corps</button>
       <button class="chip-btn" onclick="sendPrompt('Explain Form 1120 Schedule M-1 book to tax reconciliation')">📙 Form 1120: C-Corps</button>
       <button class="chip-btn" onclick="sendPrompt('Show available tax case studies in Firestore database')">🗂️ Case Study Database</button>
+      <button class="chip-btn" onclick="sendPrompt('Visualize the steps for Schedule K-1 tax allocation in a video')">🎬 Visualize Steps in Video</button>
     </div>
 
     <div class="bento-card syllabus-box">
@@ -464,11 +521,49 @@ function buildNode(id, comps, seen) {
       kids().forEach(n => d.appendChild(n)); return d;
     }
     case "Text": {
+      const textVal = boundStr(props.text);
+
+      // Check if text contains a video URL
+      const videoMatch = textVal.match(/(https?:\/\/[^\s]+\.mp4)/i);
+      if (videoMatch) {
+        const wrap = el("div", "a2col");
+        const caption = el("div", "a2text a2-caption", textVal);
+        const video = el("video", "a2video");
+        video.src = videoMatch[1];
+        video.controls = true;
+        video.autoplay = false;
+        wrap.appendChild(caption);
+        wrap.appendChild(video);
+        return wrap;
+      }
+
+      // Check if text is a Step element (e.g. [STEP 1], [STEP 2], [KEY FORMULA])
+      const stepMatch = textVal.match(/^\[(STEP\s*\d+|KEY FORMULA|KEY RULE|SUMMARY)\]\s*(.*)/i);
+      if (stepMatch) {
+        const box = el("div", "a2step-box");
+        const badge = el("span", "a2step-badge", stepMatch[1]);
+        const bodyText = document.createTextNode(stepMatch[2]);
+        box.appendChild(badge);
+        box.appendChild(bodyText);
+        return box;
+      }
+
+      // Check if text is a Visual Option callout
+      if (/VISUAL OPTION|Visual Option/i.test(textVal)) {
+        const box = el("div", "a2visual-callout");
+        const txt = el("div", null, textVal);
+        const btn = el("button", "a2visual-btn", "🎬 Click to Generate Animated Video");
+        btn.onclick = () => sendPrompt("Visualize these steps in an animated video");
+        box.appendChild(txt);
+        box.appendChild(btn);
+        return box;
+      }
+
       const t = el("div", "a2text");
       const hint = String(props.usageHint || "body").toLowerCase();
       if (["h1", "h2", "h3", "h4", "h5", "h6"].includes(hint)) t.classList.add("a2-" + hint);
       else if (hint === "caption") t.classList.add("a2-caption");
-      t.textContent = boundStr(props.text);
+      t.textContent = textVal;
       return t;
     }
     case "Divider":

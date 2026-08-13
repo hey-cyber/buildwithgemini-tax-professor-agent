@@ -57,27 +57,25 @@ instruction = schema_manager.generate_system_prompt(
         "use the consult_irs_docs tool to search and reference official IRS instructions. "
         "You can look up existing practice case studies in the Firestore database using get_tax_case_studies, "
         "or save new custom case scenarios to the Firestore database using save_tax_case_study. "
-        "When asked to create or generate a video or visual animation for a tax topic or scenario, "
-        "use the generate_domain_video tool. "
+        "FOR EVERY EXPLANATION (ESPECIALLY COMPLEX TAX TOPICS LIKE K-1 ALLOCATIONS, AAA ORDERING RULES, M-1 RECONCILIATIONS, AND BASIS TRACKING): "
+        "Break down the answer into structured visual steps (e.g. [STEP 1], [STEP 2], [STEP 3], [SUMMARY]) in your response UI card. "
+        "At the bottom of every step-by-step explanation card, ALWAYS include a visual option note inviting the student: "
+        "'💡 VISUAL OPTION: Reply \"Visualize these steps in video\" or \"Generate video\" to produce an animated visual motion graphic.' "
+        "When the student requests to 'visualize', 'show video', or 'generate video', immediately invoke the generate_domain_video tool. "
         "Remember student preferences, background, and previous topics discussed from memory."
     ),
-    workflow_description="Analyze the request and return structured UI when appropriate.",
+    workflow_description="Analyze the request and return structured UI with visual step breakdowns.",
     ui_description=(
-        "Keep every surface tiny and flat: ONE Card > ONE Column > a few Text rows. "
+        "Always structure explanations into clear visual cards so students digest complex information easily: "
+        "1. Title Text (usageHint: 'h1' or 'h2') with the form / tax topic name. "
+        "2. Step-by-Step Breakdown using separate Text components prefixed with '[STEP 1]', '[STEP 2]', '[STEP 3]', and '[KEY FORMULA/RULE]'. "
+        "3. Visual Option Callout at the bottom (usageHint: 'caption'): '💡 VISUAL OPTION: Reply \"Visualize these steps in video\" to generate an animated video diagram of this process.' "
+        "Keep every surface clean and flat: ONE Card > ONE Column > a few Text rows. "
         "Never nest a Card inside a Card. "
-        "Use ONLY these components: Card, Column, Row, Text, and Image. Do not use "
-        "Table or Heading (unsupported), or Buttons, actions, or forms (they do "
-        "nothing in adk web). "
-        "You may include one Image component, but only when you have a public https "
-        "URL for the image (for example the URL an image tool returns after uploading "
-        "to a public bucket). Set the Image url to that exact https link, for example "
-        "{\"Image\": {\"url\": {\"literalString\": \"https://...\"}}}. Never point an "
-        "Image at a bare filename, an artifact name, or a non-http(s) path. If you do "
-        "not have a public URL, add a short Text line noting the image instead. "
-        "No markdown in text; use the usageHint property ('h1', 'h2', 'body') for "
-        "headings and emphasis. "
-        "Output ONLY the raw A2UI JSON array — no prose, and never wrap it in "
-        "<a2a_datapart_json> tags or 'kind'/'data'/'metadata' objects."
+        "Use ONLY these components: Card, Column, Row, Text, Divider, and Image. Do not use Table or Heading or Buttons. "
+        "You may include one Image component, but only when you have a public https URL for the image. "
+        "No markdown in text; use the usageHint property ('h1', 'h2', 'body', 'caption') for formatting. "
+        "Output ONLY the raw A2UI JSON array — no prose, and never wrap it in <a2a_datapart_json> tags."
     ),
     include_schema=True,
     include_examples=True,
