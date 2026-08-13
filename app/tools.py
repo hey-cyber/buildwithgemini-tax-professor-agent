@@ -20,6 +20,8 @@ SERVERLESS_RAG_CORPUS_NAME = "projects/336327133324/locations/us-central1/ragCor
 
 # HARDCODED PROJECT ID as string literal (required for Vertex AI Agent Platform)
 FIRESTORE_PROJECT_ID = "qwiklabs-gcp-03-59f89a78fde9"
+STATIC_ASSETS_BUCKET = "qwiklabs-gcp-03-59f89a78fde9-static-assets-bucket"
+from typing import Any
 
 
 def calculate(expression: str) -> str:
@@ -230,3 +232,73 @@ def save_tax_case_study(
         return f"Successfully saved new tax case study '{title}' (ID: {doc_id}) into Firestore database!"
     except Exception as e:
         return f"Error saving tax case study to Firestore: {e}"
+
+
+async def generate_domain_video(
+    prompt: str,
+    tool_context: Any = None,
+) -> str:
+    """Generates a short educational motion graphic or video for a corporate tax topic (e.g. Schedule K-1 allocations, Form 1120-S AAA, M-1 reconciliation) using Google Gemini Omni (gemini-omni-flash-preview) model in the global region.
+
+    Saves the video as an artifact for the Playground and uploads it to the public Cloud Storage bucket.
+
+    Args:
+        prompt: Description of the tax video/graphic to generate (e.g., "A short animated video explaining Form 1065 Schedule K-1 partnership tax allocation").
+        tool_context: ADK ToolContext injected by the framework at runtime.
+
+    Returns:
+        The public Cloud Storage URL (https://storage.googleapis.com/<bucket>/<object>) of the generated MP4 video.
+    """
+    import uuid
+    from google import genai
+    from google.genai import types
+    from google.cloud import storage
+
+    try:
+        # 1. Call gemini-omni-flash-preview model via Vertex AI in global region
+        client = genai.Client(
+            vertexai=True,
+            project=FIRESTORE_PROJECT_ID,
+            location="global",
+        )
+
+        res = client.interactions.create(
+            model="gemini-omni-flash-preview",
+            input=prompt,
+            generation_config={"response_modalities": ["VIDEO"]},
+        )
+
+        video_bytes = None
+        if hasattr(res, "output_video") and res.output_video and getattr(res.output_video, "data", None):
+            video_bytes = res.output_video.data
+        elif hasattr(res, "outputs") and res.outputs:
+            for out in res.outputs:
+                if getattr(out, "mime_type", "") == "video/mp4" and getattr(out, "data", None):
+                    video_bytes = out.data
+                    break
+
+        if not video_bytes:
+            return f"Error: No video bytes returned from gemini-omni-flash-preview for prompt '{prompt}'."
+
+        filename = f"tax_video_{uuid.uuid4().hex[:8]}.mp4"
+
+        # 2. Save artifact using tool_context.save_artifact
+        if tool_context and hasattr(tool_context, "save_artifact"):
+            try:
+                artifact_part = types.Part.from_bytes(data=video_bytes, mime_type="video/mp4")
+                await tool_context.save_artifact(filename=filename, artifact=artifact_part)
+            except Exception as artifact_err:
+                print(f"Warning: Failed to save video artifact in tool_context: {artifact_err}")
+
+        # 3. Upload video bytes to public Cloud Storage bucket
+        storage_client = storage.Client(project=FIRESTORE_PROJECT_ID)
+        bucket = storage_client.bucket(STATIC_ASSETS_BUCKET)
+        blob_name = f"videos/{filename}"
+        blob = bucket.blob(blob_name)
+        blob.upload_from_string(video_bytes, content_type="video/mp4")
+
+        public_url = f"https://storage.googleapis.com/{STATIC_ASSETS_BUCKET}/{blob_name}"
+        return f"Successfully generated video! Public Cloud Storage URL: {public_url}"
+
+    except Exception as e:
+        return f"Error generating video with gemini-omni-flash-preview: {e}"

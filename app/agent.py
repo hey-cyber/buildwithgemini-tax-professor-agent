@@ -27,6 +27,7 @@ from app.tools import (
     calculate,
     consult_irs_docs,
     convert_units,
+    generate_domain_video,
     get_tax_case_studies,
     save_tax_case_study,
 )
@@ -56,6 +57,8 @@ instruction = schema_manager.generate_system_prompt(
         "use the consult_irs_docs tool to search and reference official IRS instructions. "
         "You can look up existing practice case studies in the Firestore database using get_tax_case_studies, "
         "or save new custom case scenarios to the Firestore database using save_tax_case_study. "
+        "When asked to create or generate a video or visual animation for a tax topic or scenario, "
+        "use the generate_domain_video tool. "
         "Remember student preferences, background, and previous topics discussed from memory."
     ),
     workflow_description="Analyze the request and return structured UI when appropriate.",
@@ -96,6 +99,7 @@ root_agent = Agent(
         consult_irs_docs,
         get_tax_case_studies,
         save_tax_case_study,
+        generate_domain_video,
         PreloadMemoryTool(),
     ],
     after_model_callback=a2ui_callback,
