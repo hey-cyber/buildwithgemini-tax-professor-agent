@@ -249,6 +249,7 @@ async def generate_domain_video(
     Returns:
         The public Cloud Storage URL (https://storage.googleapis.com/<bucket>/<object>) of the generated MP4 video.
     """
+    import base64
     import uuid
     from google import genai
     from google.genai import types
@@ -268,17 +269,33 @@ async def generate_domain_video(
             generation_config={"response_modalities": ["VIDEO"]},
         )
 
-        video_bytes = None
+        raw_data = None
         if hasattr(res, "output_video") and res.output_video and getattr(res.output_video, "data", None):
-            video_bytes = res.output_video.data
+            raw_data = res.output_video.data
         elif hasattr(res, "outputs") and res.outputs:
             for out in res.outputs:
                 if getattr(out, "mime_type", "") == "video/mp4" and getattr(out, "data", None):
-                    video_bytes = out.data
+                    raw_data = out.data
                     break
 
-        if not video_bytes:
+        if not raw_data:
             return f"Error: No video bytes returned from gemini-omni-flash-preview for prompt '{prompt}'."
+
+        # Decode base64 data string to binary video bytes
+        if isinstance(raw_data, str):
+            video_bytes = base64.b64decode(raw_data)
+        elif isinstance(raw_data, bytes):
+            try:
+                # Test if raw_data is base64 encoded bytes
+                decoded = base64.b64decode(raw_data)
+                if b"ftyp" in decoded[:30] or decoded.startswith(b"\x00\x00\x00"):
+                    video_bytes = decoded
+                else:
+                    video_bytes = raw_data
+            except Exception:
+                video_bytes = raw_data
+        else:
+            return f"Error: Unexpected video data format '{type(raw_data)}'."
 
         filename = f"tax_video_{uuid.uuid4().hex[:8]}.mp4"
 
@@ -290,7 +307,7 @@ async def generate_domain_video(
             except Exception as artifact_err:
                 print(f"Warning: Failed to save video artifact in tool_context: {artifact_err}")
 
-        # 3. Upload video bytes to public Cloud Storage bucket
+        # 3. Upload decoded binary video bytes to public Cloud Storage bucket
         storage_client = storage.Client(project=FIRESTORE_PROJECT_ID)
         bucket = storage_client.bucket(STATIC_ASSETS_BUCKET)
         blob_name = f"videos/{filename}"
